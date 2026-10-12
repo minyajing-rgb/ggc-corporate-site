@@ -63,6 +63,41 @@ jobs:
           for file in ('zh/index.html', 'en/index.html', 'assets/joyce-approved.webp'):
               assert (site / file).is_file(), file
           PY
+      - name: Finalize production SEO
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          from xml.sax.saxutils import escape
+          site = Path('site')
+          origin = 'https://ggcgames.com'
+          sitemap = []
+          for page in sorted(site.glob('??/*.html')):
+              locale = page.parent.name
+              if locale not in ('zh', 'en'):
+                  continue
+              route = page.name
+              indexable = route not in ('404.html', 'buttons.html')
+              html = page.read_text(encoding='utf-8')
+              html = re.sub(r'<meta\\s+name=["\\\']robots["\\\'][^>]*>', '', html, flags=re.I)
+              robots = '<meta name="robots" content="' + ('index,follow' if indexable else 'noindex,follow') + '">'
+              tags = robots
+              if indexable and 'rel="canonical"' not in html:
+                  canonical = f'{origin}/{locale}/{route}'
+                  tags += f'<link rel="canonical" href="{canonical}">'
+                  for lang, path_locale in (('zh-CN','zh'), ('en','en'), ('x-default','zh')):
+                      tags += f'<link rel="alternate" hreflang="{lang}" href="{origin}/{path_locale}/{route}">'
+              html = html.replace('</head>', tags + '</head>', 1)
+              page.write_text(html, encoding='utf-8')
+              if indexable:
+                  sitemap.append(f'{origin}/{locale}/{route}')
+          (site / 'robots.txt').write_text('User-agent: *\\nAllow: /\\nSitemap: ' + origin + '/sitemap.xml\\n', encoding='utf-8')
+          xml = '<?xml version="1.0" encoding="UTF-8"?>\\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n'
+          xml += ''.join(f'  <url><loc>{escape(url)}</loc></url>\\n' for url in sitemap)
+          xml += '</urlset>\\n'
+          (site / 'sitemap.xml').write_text(xml, encoding='utf-8')
+          print(f'Production sitemap: {len(sitemap)} URLs')
+          PY
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
