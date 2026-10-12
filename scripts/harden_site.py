@@ -69,6 +69,13 @@ for locale, copy in privacy.items():
     template = re.sub(r'<title>.*?</title>', '<title>' + copy['title'] + ' · GGC</title>', template, count=1, flags=re.S)
     target.write_text(template, encoding='utf-8')
 
+# GitHub Pages serves the root 404 document for any missing URL. Reuse the
+# accepted branded 404 and resolve its relative links from the zh directory.
+branded_404 = (site / 'zh' / '404.html').read_text(encoding='utf-8')
+assert '<head>' in branded_404
+branded_404 = branded_404.replace('<head>', '<head><base href="https://ggcgames.com/zh/">', 1)
+(site / '404.html').write_text(branded_404, encoding='utf-8')
+
 # On mobile the menu button follows the hidden nav in DOM order. Move focus to
 # the opened nav so a keyboard user can reach its links immediately.
 js = site / 'assets' / 'production-nav.js'
