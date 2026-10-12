@@ -79,7 +79,7 @@ jobs:
               route = page.name
               indexable = route not in ('404.html', 'buttons.html')
               html = page.read_text(encoding='utf-8')
-              html = re.sub(r'<meta\\s+name=["\\\']robots["\\\'][^>]*>', '', html, flags=re.I)
+              html = re.sub(r'<meta[^>]*name="robots"[^>]*>', '', html, flags=re.I)
               robots = '<meta name="robots" content="' + ('index,follow' if indexable else 'noindex,follow') + '">'
               tags = robots
               if indexable and 'rel="canonical"' not in html:
@@ -91,10 +91,9 @@ jobs:
               page.write_text(html, encoding='utf-8')
               if indexable:
                   sitemap.append(f'{origin}/{locale}/{route}')
-          (site / 'robots.txt').write_text('User-agent: *\\nAllow: /\\nSitemap: ' + origin + '/sitemap.xml\\n', encoding='utf-8')
-          xml = '<?xml version="1.0" encoding="UTF-8"?>\\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n'
-          xml += ''.join(f'  <url><loc>{escape(url)}</loc></url>\\n' for url in sitemap)
-          xml += '</urlset>\\n'
+          (site / 'robots.txt').write_text(chr(10).join(('User-agent: *', 'Allow: /', 'Sitemap: ' + origin + '/sitemap.xml', '')), encoding='utf-8')
+          nl = chr(10)
+          xml = nl.join(['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'] + [f'  <url><loc>{escape(url)}</loc></url>' for url in sitemap] + ['</urlset>', ''])
           (site / 'sitemap.xml').write_text(xml, encoding='utf-8')
           print(f'Production sitemap: {len(sitemap)} URLs')
           PY
