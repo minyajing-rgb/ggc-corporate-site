@@ -20,6 +20,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Check out publishing safeguards
+        uses: actions/checkout@v4
+        with:
+          path: publisher
       - name: Check out reviewed source
         uses: actions/checkout@v4
         with:
@@ -63,6 +67,8 @@ jobs:
           for file in ('zh/index.html', 'en/index.html', 'assets/joyce-approved.webp'):
               assert (site / file).is_file(), file
           PY
+      - name: Harden public forms, privacy, and mobile navigation
+        run: python publisher/scripts/harden_site.py site
       - name: Finalize production SEO
         run: |
           python - <<'PY'
