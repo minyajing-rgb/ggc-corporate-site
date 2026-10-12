@@ -1,0 +1,52 @@
+name: Publish GGC corporate site
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Reviewed ggc-global commit SHA"
+        required: true
+        default: "67478e3cb9b65a980e1d027d299e6c5d6ebfa6ab"
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: ggc-corporate-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@v4
+        with:
+          repository: minyajing-rgb/ggc-global
+          ref: ${{ inputs.source_ref }}
+          path: source
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build verified bilingual site
+        run: python source/corporate/fullsite-v4/prepare_site.py --out "$GITHUB_WORKSPACE/site" --stage "$RUNNER_TEMP/ggc-site-source"
+      - name: Add site entry points
+        run: |
+          printf '%s\n' '<!doctype html><html lang="zh"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=zh/index.html"><title>GGC</title><a href="zh/index.html">进入 GGC 官网 / Enter GGC</a></html>' > site/index.html
+          printf '%s\n' '<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="robots" content="noindex"><title>页面不存在 · GGC</title><h1>页面不存在 / Page not found</h1><p><a href="/">返回官网 / Back to GGC</a></p></html>' > site/404.html
+          touch site/.nojekyll
+          test -f site/zh/index.html
+          test -f site/en/index.html
+          test -f site/assets/joyce-approved.webp
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
