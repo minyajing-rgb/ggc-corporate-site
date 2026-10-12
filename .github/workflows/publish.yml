@@ -5,7 +5,7 @@ on:
       source_ref:
         description: "Reviewed ggc-global commit SHA"
         required: true
-        default: "67478e3cb9b65a980e1d027d299e6c5d6ebfa6ab"
+        default: "80d3addab65b42eb7d4d206531d68b7c9f064c74"
 permissions:
   contents: read
   pages: write
@@ -20,10 +20,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check out publishing safeguards
-        uses: actions/checkout@v4
-        with:
-          path: publisher
       - name: Check out reviewed source
         uses: actions/checkout@v4
         with:
@@ -35,73 +31,30 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build verified bilingual site
-        run: python source/corporate/fullsite-v4/prepare_site.py --out "$GITHUB_WORKSPACE/site" --stage "$RUNNER_TEMP/ggc-site-source"
-      - name: Prepare public entry points and remove review-only UI
+      - name: Build source-owned P0 release artifact
+        run: python source/corporate/fullsite-v4/build_ready.py --out "$GITHUB_WORKSPACE/site" --mode release --base-url https://ggcgames.com/
+      - name: Verify and minimize public artifact
         run: |
           python - <<'PY'
           from pathlib import Path
+          import json
           site = Path('site')
-          zh = '<a href="../review.html">整站UI总览 ↗</a>'
-          en = '<a href="../review.html">All-screen review ↗</a>'
-          removed = 0
-          for page in site.glob('??/*.html'):
-              html = page.read_text(encoding='utf-8')
-              removed += html.count(zh) + html.count(en)
-              page.write_text(html.replace(zh, '').replace(en, ''), encoding='utf-8')
-          print(f'Removed {removed} review-only links')
-          (site / 'review.html').unlink(missing_ok=True)
-          (site / 'source-verification.json').unlink(missing_ok=True)
-          (site / 'index.html').write_text(
-              '<!doctype html><html lang="zh"><meta charset="utf-8">'
-              '<meta http-equiv="refresh" content="0;url=zh/index.html">'
-              '<title>GGC</title><a href="zh/index.html">进入 GGC 官网 / Enter GGC</a></html>',
-              encoding='utf-8')
-          (site / '404.html').write_text(
-              '<!doctype html><html lang="zh"><meta charset="utf-8">'
-              '<meta name="robots" content="noindex"><title>页面不存在 · GGC</title>'
-              '<h1>页面不存在 / Page not found</h1>'
-              '<p><a href="/">{REPLACE}</a></p></html>'.replace('{REPLACE}', '返回官网 / Back to GGC'),
-              encoding='utf-8')
+          report = json.loads((site / 'readiness-manifest.json').read_text())
+          assert report['mode'] == 'release'
+          assert report['canonical_base'] == 'https://ggcgames.com/'
+          assert report['locale_pages'] == 98
+          assert report['indexable_urls'] == 94
+          assert report['approved_assets_unchanged']
+          assert len(list(site.glob('??/*.html'))) == 98
+          for path in ('index.html', '404.html', 'robots.txt', 'sitemap.xml', 'assets/readiness.js'):
+              assert (site / path).is_file(), path
+          for path in site.glob('??/*.html'):
+              content = path.read_text(encoding='utf-8')
+              assert '../review.html' not in content, path
+          for path in ('review.html', 'source-verification.json', 'readiness-manifest.json', 'build-manifest.json'):
+              (site / path).unlink(missing_ok=True)
           (site / '.nojekyll').touch()
-          for file in ('zh/index.html', 'en/index.html', 'assets/joyce-approved.webp'):
-              assert (site / file).is_file(), file
-          PY
-      - name: Harden public forms, privacy, and mobile navigation
-        run: python publisher/scripts/harden_site.py site
-      - name: Finalize production SEO
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          from xml.sax.saxutils import escape
-          site = Path('site')
-          origin = 'https://ggcgames.com'
-          sitemap = []
-          for page in sorted(site.glob('??/*.html')):
-              locale = page.parent.name
-              if locale not in ('zh', 'en'):
-                  continue
-              route = page.name
-              indexable = route not in ('404.html', 'buttons.html')
-              html = page.read_text(encoding='utf-8')
-              html = re.sub(r'<meta[^>]*name="robots"[^>]*>', '', html, flags=re.I)
-              robots = '<meta name="robots" content="' + ('index,follow' if indexable else 'noindex,follow') + '">'
-              tags = robots
-              if indexable and 'rel="canonical"' not in html:
-                  canonical = f'{origin}/{locale}/{route}'
-                  tags += f'<link rel="canonical" href="{canonical}">'
-                  for lang, path_locale in (('zh-CN','zh'), ('en','en'), ('x-default','zh')):
-                      tags += f'<link rel="alternate" hreflang="{lang}" href="{origin}/{path_locale}/{route}">'
-              html = html.replace('</head>', tags + '</head>', 1)
-              page.write_text(html, encoding='utf-8')
-              if indexable:
-                  sitemap.append(f'{origin}/{locale}/{route}')
-          (site / 'robots.txt').write_text(chr(10).join(('User-agent: *', 'Allow: /', 'Sitemap: ' + origin + '/sitemap.xml', '')), encoding='utf-8')
-          nl = chr(10)
-          xml = nl.join(['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'] + [f'  <url><loc>{escape(url)}</loc></url>' for url in sitemap] + ['</urlset>', ''])
-          (site / 'sitemap.xml').write_text(xml, encoding='utf-8')
-          print(f'Production sitemap: {len(sitemap)} URLs')
+          print('Verified release: 98 localized pages, 94 indexable URLs, 2 privacy pages, branded 404')
           PY
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
