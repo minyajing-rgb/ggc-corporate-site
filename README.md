@@ -15,7 +15,7 @@ The production domain is `ggcgames.com`, with `www.ggcgames.com` routed to the s
 - HTTPS enforcement was enabled on 13 October 2026. Recheck the certificate and HTTP-to-HTTPS redirect after DNS or hosting changes.
 - Contact and updates forms only prepare email drafts for the visitor to review and send. There is no automatic inquiry submission, CRM, or mailing-list subscription.
 - Keep PR #11 source changes and this workflow's pinned SHA in sync. A preview or successful Actions run alone is not visual or production acceptance.
-- PR #11 also contains a disabled-by-default candidate for real business inquiries through FormSubmit. Do not pass `--inquiry-endpoint` in this workflow until the mailbox owner activates the form, a harmless test inquiry reaches the notification mailbox, and the contact/privacy wording is verified on production. Updates-interest remains email-draft only.
+- PR #11 contains a disabled-by-default candidate for real business inquiries through FormSubmit. On 13 October 2026, harmless ZH and EN JSON test inquiries each returned `success: true`, and separate notification emails arrived at the destination mailbox. Source CI passed [P0](https://github.com/minyajing-rgb/ggc-global/actions/runs/38336928586) (10,480 checks) and [UI review](https://github.com/minyajing-rgb/ggc-global/actions/runs/38336928606) (4,336 checks), both with zero failures. The production workflow still does not pass `--inquiry-endpoint`; wait for explicit approval of the FormSubmit visitor-data transfer, then publish and verify production wording and a real end-to-end submission. Updates-interest remains email-draft only.
 
 ## DNS recovery
 
