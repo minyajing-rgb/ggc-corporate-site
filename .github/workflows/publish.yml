@@ -5,7 +5,7 @@ on:
       source_ref:
         description: "Reviewed ggc-global commit SHA"
         required: true
-        default: "54990150aef1122bf557ab4f8a0ff6ca52aefe77"
+        default: "a7ab0520e619e5c408ca73fa561f93daac0f1152"
 permissions:
   contents: read
   pages: write
