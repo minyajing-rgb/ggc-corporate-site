@@ -29,6 +29,7 @@ class Page(HTMLParser):
         self.assets = []
         self.canonical = []
         self.alternates = []
+        self.robots = []
         self.h1 = 0
         self.images_without_alt = 0
     def handle_starttag(self, tag, attrs):
@@ -51,6 +52,8 @@ class Page(HTMLParser):
                 self.assets.append(a["href"])
         if tag == "h1":
             self.h1 += 1
+        if tag == "meta" and a.get("name") == "robots":
+            self.robots.append(a.get("content", ""))
 
 def main():
     failures = []
@@ -63,7 +66,10 @@ def main():
         failures.append(f"sitemap count/uniqueness {len(urls)}/{len(set(urls))}, expected 94")
     if any(not u.startswith(BASE + "/") for u in urls):
         failures.append("sitemap contains an off-domain URL")
-    page_urls = urls + [BASE + "/zh/privacy.html", BASE + "/en/privacy.html"]
+    noindex_urls = {BASE + f"/{loc}/{route}.html" for loc in ("zh", "en") for route in ("buttons", "404")}
+    page_urls = urls + sorted(noindex_urls)
+    if len(page_urls) != 98 or len(set(page_urls)) != 98:
+        failures.append(f"localized page count/uniqueness {len(page_urls)}/{len(set(page_urls))}, expected 98")
     parsed = {}
     with ThreadPoolExecutor(max_workers=8) as pool:
         futs = {pool.submit(get, url): url for url in page_urls}
@@ -77,8 +83,12 @@ def main():
             page = Page()
             page.feed(data.decode("utf-8"))
             parsed[url] = page
-            if page.canonical != [url]:
+            expected_canonical = [] if url.endswith("/404.html") else [url]
+            if page.canonical != expected_canonical:
                 failures.append(f"page {url}: canonical {page.canonical}")
+            expected_indexed = url not in noindex_urls
+            if len(page.robots) != 1 or ("noindex" in page.robots[0]) == expected_indexed:
+                failures.append(f"page {url}: robots {page.robots}")
             if page.h1 != 1:
                 failures.append(f"page {url}: {page.h1} h1 elements")
             if page.images_without_alt:
