@@ -5,7 +5,7 @@ on:
       source_ref:
         description: "Reviewed ggc-global commit SHA"
         required: true
-        default: "a7ab0520e619e5c408ca73fa561f93daac0f1152"
+        default: "5d0f63a17f498fc28c0eb459f1ee3ae775282646"
 permissions:
   contents: read
   pages: write
@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build source-owned P0 release artifact
-        run: python source/corporate/fullsite-v4/build_ready.py --out "$GITHUB_WORKSPACE/site" --mode release --base-url https://ggcgames.com/
+        run: python source/corporate/fullsite-v4/build_ready.py --out "$GITHUB_WORKSPACE/site" --mode release --base-url https://ggcgames.com/ --google-form
       - name: Verify and minimize public artifact
         run: |
           python - <<'PY'
@@ -45,6 +45,14 @@ jobs:
           assert report['locale_pages'] == 98
           assert report['indexable_urls'] == 94
           assert report['approved_assets_unchanged']
+          assert report['forms'].startswith('Google Forms business inquiries')
+          assert report['google_form_url'].startswith('https://docs.google.com/forms/d/e/')
+          for locale in ('zh', 'en'):
+              contact = (site / locale / 'contact.html').read_text(encoding='utf-8')
+              privacy = (site / locale / 'privacy.html').read_text(encoding='utf-8')
+              assert contact.count(report['google_form_url']) == 1
+              assert 'data-inquiry' not in contact and 'formsubmit.co' not in contact
+              assert 'Google' in privacy
           assert len(list(site.glob('??/*.html'))) == 98
           for path in ('index.html', '404.html', 'robots.txt', 'sitemap.xml', 'assets/readiness.js'):
               assert (site / path).is_file(), path
