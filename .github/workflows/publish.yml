@@ -5,7 +5,7 @@ on:
       source_ref:
         description: "Reviewed ggc-global commit SHA"
         required: true
-        default: "80d3addab65b42eb7d4d206531d68b7c9f064c74"
+        default: "54990150aef1122bf557ab4f8a0ff6ca52aefe77"
 permissions:
   contents: read
   pages: write
@@ -48,6 +48,7 @@ jobs:
           assert len(list(site.glob('??/*.html'))) == 98
           for path in ('index.html', '404.html', 'robots.txt', 'sitemap.xml', 'assets/readiness.js'):
               assert (site / path).is_file(), path
+          assert 'href="review.html"' not in (site / 'index.html').read_text(encoding='utf-8')
           for path in site.glob('??/*.html'):
               content = path.read_text(encoding='utf-8')
               assert '../review.html' not in content, path
